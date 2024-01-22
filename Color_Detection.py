@@ -1,25 +1,90 @@
+import cv2
+from PIL import Image
+from util import get_limits
 import serial
+import time
+import subprocess
+import sys
 
-# Configure serial port
-ser = serial.Serial('/dev/ttyACM0', 9600, timeout=1)  # Update the port and baud rate as needed
+try:
+    ser = serial.Serial('/dev/ttyACM0', 9600, timeout=1)
+    # Your code here that uses the serial connection
+
+except serial.SerialException as e:
+    ser = serial.Serial('/dev/ttyACM1', 9600, timeout=1)
+
+
+def arduino(number):
+    try:
+        # Open the serial port if it's not already open
+        if not ser.is_open:
+            ser.open()
+
+        # Write the data to the serial port
+        ser.write(str(number).encode())
+    except Exception as e:
+        print(f"Error writing to serial port: {e}")
+    print(number)
+    time.sleep(1)
+
+
+yellow = [0, 255, 255]
+cap = cv2.VideoCapture(0)
+
+cap.set(cv2.CAP_PROP_FRAME_WIDTH, 800)
+cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 500)
+
 
 try:
     while True:
-        # Get a number from the user
-        user_input = input("Enter a number to send to Arduino: ")
+        ret, frame = cap.read()
 
-        # Check if the input is a valid integer
-        try:
-            number_to_send = int(user_input)
-        except ValueError:
-            print("Invalid input. Please enter a valid integer.")
-            continue
+        if not ret:
+            print("Error: Failed to capture frame.")
+            break
 
-        # Send the number to Arduino
-        ser.write(str(number_to_send).encode())
+        hsvImage = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
 
-except KeyboardInterrupt:
-    print("\nExiting the program.")
+        lowerLimit, upperLimit = get_limits(color=yellow)
+
+        mask = cv2.inRange(hsvImage, lowerLimit, upperLimit)
+
+        mask_ = Image.fromarray(mask)
+
+        bbox = mask_.getbbox()
+
+        if bbox is not None:
+            x1, y1, x2, y2 = bbox
+
+            frame = cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 5)
+
+            xc = (x1 + x2) / 2
+              
+            if(xc - 400) > 200:
+                arduino(-10)
+            elif(xc-400) < -200:
+                arduino(10)
+            elif(xc - 400) > 100:
+                arduino(-5)
+            elif(xc - 400) < -100:
+                arduino(5)
+            elif(xc - 400) > 50:
+                arduino(-3)
+            elif(xc - 400) < -50:
+                arduino(3)
+            elif(xc - 400) > 25:
+                arduino(-2)
+            elif (xc - 400) < -25:
+                arduino(2)
+            else:
+                print("0")
+        
+        cv2.imshow('frame', frame)
+        
+        if cv2.waitKey(1) & 0xFF == ord('q'):
+            break
 
 finally:
-    ser.close()  # Close the serial port on program exit
+    cap.release()
+    cv2.destroyAllWindows()
+    ser.close()  # Close the serial port
