@@ -1,27 +1,34 @@
+//Library for dabble and it's gamepad
 #define CUSTOM_SETTINGS
 #define INCLUDE_GAMEPAD_MODULE
 #include <Dabble.h>
 
+//Default librarys for servo control
 #include "Arduino.h"
-#include <SoftwareSerial.h>
 #include <Servo.h>
 
-Servo rfWheel;  // Create a servo object
+//Wheels
+Servo rfWheel;
 Servo lfWheel;
 Servo rbWheel;
 Servo lbWheel;
+
+//Firing servo
 Servo arm;
+
+//X and y diriction servo
 Servo turret;
 Servo bipod;
 
-float pwm = 90;
-bool autoAim = 0;
-bool pod = 0;
+
+float pwm = 90;     //Servo angle
+bool autoAim = 0;   //Auto aim mode
+bool pod = 0;       //Aiming pod mode, must be on when auto aim mode, also adjusts the aiming e
 bool flush = 0;
 int temp = 90;
-bool doneMove = 0;
 
 void setup() {
+  //Servos pin assigning
   rfWheel.attach(13);
   lfWheel.attach(12);
   rbWheel.attach(11); 
@@ -29,18 +36,20 @@ void setup() {
   arm.attach(8);
   turret.attach(5);
   bipod.attach(4);
-  
-  Serial.begin(9600);      // make sure your Serial Monitor is also set at this baud rate.
-  Dabble.begin(9600, 6, 7);      //Enter baudrate of your bluetooth.Connect bluetooth on Bluetooth port present on evive.
+
+  //set serial and bluetooth port baud rate
+  Serial.begin(9600);      
+  Dabble.begin(9600, 6, 7);
 }
 
 void loop() {
-  Dabble.processInput();             //this function is used to refresh data obtained from smartphone.Hence calling this function is mandatory in order to get data properly from your mobile.
+  Dabble.processInput();
   exe();
 }
 
 void exe()
 {
+  //Dabble gamepad get inputs
   if (GamePad.isLeftPressed())
   {
     moveTurret(+0.05);
@@ -51,14 +60,14 @@ void exe()
   }
   else
   {
+    
     if(autoAim)
     {
-      if(flush)
+      if(flush) //Flush the serial port when auto aim is activated, so the turret doesn't shake
       {
         temp = pwm;
         if (Serial.available() > 0) 
         {
-          doneMove = 0;
           pwm = pwm + Serial.parseInt();      
           pwm = temp;
           turret.write(pwm);
@@ -67,7 +76,6 @@ void exe()
       }
       else if (Serial.available() > 0) 
       {
-        doneMove = 0;
         pwm = pwm + Serial.parseInt();      
         if (pwm < 0) 
         {
@@ -79,20 +87,16 @@ void exe()
         }
           turret.write(pwm);
       }
-    
-      
     }
-    else
+    else //If auto aim not on, tank is free to move, and put the pod down
       {
         if (GamePad.isUpPressed())
         {
-          
           forward();
           pod = 0;
         }
         else if (GamePad.isDownPressed())
-        {
-          
+        { 
           back();
           pod = 0;  
         }
@@ -115,27 +119,23 @@ void exe()
       }
   }
   
-  
-  
-  
-  if(pod)
+  if(pod) //Put the pod up
   {
     bipod.attach(4); 
     bipod.write(180);
   }
-  else
+  else  //Put the pod down
   {
     bipod.write(80);
   }
 
-  
-  
-
+  //Fire
   if (GamePad.isCrossPressed())
   {
     fire();
   }
 
+  //Auto aim mode
   if (GamePad.isTrianglePressed())
   {
     autoAim = 1;
@@ -143,12 +143,14 @@ void exe()
     flush = 1;
   }
 
+  //Turnoff auto and pod mode
   if (GamePad.isStartPressed())
   {
     autoAim = 0;
     pod = 0;
   }
 
+  //Turn off auto mode but stays/turn-on the pod
   if (GamePad.isSelectPressed())
   {  
     autoAim = 0;
@@ -156,6 +158,7 @@ void exe()
   }  
 }
 
+//Turn the turret by adding or subtracting current angle with parameter
 void moveTurret(float angle)
 {
   if(pwm + angle > 180)
@@ -172,13 +175,14 @@ void moveTurret(float angle)
   }
   turret.write(pwm);
 }
+
+//Stop everything to save maximum power for firing
 void fire()
 {
   stop();
   arm.write(0);
   delay(2100);
   arm.write(90);
-  
 }
 
 void recenter()
@@ -188,7 +192,6 @@ void recenter()
 
 void stop()
 {
-
   rfWheel.write(90);
   lfWheel.write(90);
   rbWheel.write(90);
@@ -206,32 +209,26 @@ void start()
 }
 void right()
 {
-
   rfWheel.write(180);
   lfWheel.write(180);
   rbWheel.write(180);
   lbWheel.write(180);
-
 }
 
 void left()
 {
-
   rfWheel.write(0);
   lfWheel.write(0);
   rbWheel.write(0);
   lbWheel.write(0);
-
 }
 
 void back()
 {
-
   rfWheel.write(180);
   rbWheel.write(180);
   lfWheel.write(0);
   lbWheel.write(0);
-
 }
 
 void forward()
